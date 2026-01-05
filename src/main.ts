@@ -13,12 +13,31 @@ async function bootstrap() {
   // Cookie Parser
   app.use(cookieParser());
 
-  // CORS with credentials
+  // Allowed origins from ENV
+  const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim());
+
+  // CORS with dynamic origin validation
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow requests with no origin (mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+
+      // Check if origin is allowed
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    exposedHeaders: ['Set-Cookie'],
   });
 
   // Global prefix
@@ -44,6 +63,7 @@ async function bootstrap() {
 
   logger.log(`🚀 Server running on http://localhost:${port}`);
   logger.log(`📚 API endpoint: http://localhost:${port}/api`);
+  logger.log(`🌐 CORS enabled for: ${allowedOrigins.join(', ')}`);
 }
 
 bootstrap().catch((error) => {
